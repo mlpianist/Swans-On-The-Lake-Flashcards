@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parts Flashcards</title>
+<style>
+:root{--bg:#f5f3ee;--ink:#2b2b33;--btn:#2b2b33;--btnt:#fff;--cell:#fff;color-scheme:light dark;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1b20;--ink:#f1f0ec;--btn:#f1f0ec;--btnt:#1b1b20}}
+:root[data-theme="dark"]{--bg:#1b1b20;--ink:#f1f0ec;--btn:#f1f0ec;--btnt:#1b1b20}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center}
+h1{font-size:2rem;margin:0 0 .4rem;text-align:center}
+.sub{opacity:.7;margin:0 0 1.6rem;text-align:center}
+.menu{display:flex;flex-direction:column;gap:14px;width:min(360px,86vw)}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:14px 20px;background:var(--btn);color:var(--btnt);font-weight:600;font-size:1.05rem;transition:transform .12s}
+button:hover{transform:translateY(-2px)}
+.ghost{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.top{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;padding:0 10px}
+.pbtn{padding:10px 16px;color:#fff;font-size:.95rem}
+.pbtn.sel{outline:3px solid var(--ink);outline-offset:2px}
+#app{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.stage{display:flex;align-items:center;justify-content:center;gap:16px}
+.rows{display:flex;flex-direction:column;align-items:flex-start;width:442px}
+.box{position:relative}
+.card{width:520px;height:700px;transform-origin:top left;perspective:1600px;cursor:pointer}
+.inner{position:relative;width:100%;height:100%;transition:transform .7s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d}
+.inner.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:26px;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 12px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.front{background:var(--ac);color:var(--on);border:5px solid var(--on)}
+.back{transform:rotateY(180deg);background:var(--ac);color:var(--on);border:5px solid var(--on)}
+.back span{font-size:3.4rem;font-weight:800;letter-spacing:.06em}
+.title{font-size:2rem;font-weight:800;letter-spacing:.18em;color:var(--on);margin-bottom:22px}
+.row{display:flex;align-items:center;gap:8px}
+.arr{font-size:1.6rem;color:var(--on);font-weight:700;width:28px;text-align:center}
+.cell{box-sizing:border-box;width:118px;height:110px;background:var(--cell);border:3px solid var(--on);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.half{flex:1;display:flex;align-items:center;justify-content:center;position:relative;font-size:2.3rem;font-weight:800;color:#1d1d24}
+.half+.half{border-top:2px solid var(--sup)}
+.half sup{position:absolute;left:10px;top:6px;font-size:.95rem;color:var(--sup);font-weight:800}
+.wrap{width:442px;height:44px;display:block}
+.hint{margin-top:12px;opacity:.65;font-size:.9rem}
+.nextbtn{min-width:96px}
+.home{position:fixed;left:14px;top:calc(env(safe-area-inset-top,0px) + 12px);padding:8px 14px;font-size:.9rem}
+.count{margin-top:10px;opacity:.7}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// Cell = [top, bottom, topFinger, bottomFinger]
+var PARTS=[
+ [[["E","C",3,5],["G"],["F"]],[["E","G"],["G"],["F"]],[["E","C"],["G"],["F"]],[["E","G"],["D"],["C"]]],
+ [[["D","F",2,2],["","G"],["","F"]],[["C","E"],["E"],["G"]]],
+ [[["D","F",2,2],["","G"],["","F"]],[["C","E"]]],
+ [[["D","G",2,1],["E"],["F"]],[["D","G"],["E"],["F"]]],
+ [[["E","C",3,5],["D"],["C"]],[["E","E"],["D"],["C"]]],
+ [[["E","C",3,5],["D"],["C","E"]],[["D","G"]]],
+ [[["D","F",2,2],["E","G"],["D","F"]],[["C","E"]]]
+];
+var NAMES=["Part One","Part Two","Part Three","Part Four","Part Five","Part Six","Part Seven"];
+var ACC=["#c2412d","#b45f06","#f7cf47","#2a7d3f","#17789a","#4f54c9","#a8379f"];
+var ON=["#fff","#fff","#3b2e00","#fff","#fff","#fff","#fff"];
+var SUP=["#c2412d","#b45f06","#8a6500","#2a7d3f","#17789a","#4f54c9","#a8379f"];
+var SONG=[1,2,3,1,2,3,4,5,4,6,1,2,7];
+var app=document.getElementById("app");
+var state={mode:null,idx:0,sel:null,flipped:false};
+
+function cellHTML(c){
+ function half(l,f){return '<div class="half">'+(f?'<sup>'+f+'</sup>':'')+l+'</div>';}
+ return '<div class="cell">'+half(c[0]||"",c[2])+half(c[1]||"",c[3])+'</div>';
+}
+function connector(){
+ return '<svg class="wrap" viewBox="0 0 442 44"><g fill="none" stroke="var(--on)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M383 4 V12 Q383 22 373 22 H69 Q59 22 59 32 V40"/><path d="M51 32 L59 41 L67 32"/></g></svg>';
+}
+function cardHTML(p,startFlipped){
+ var rows=PARTS[p].map(function(r,i){
+  var h='<div class="row">'+r.map(function(c,j){return (j?'<span class="arr">→</span>':'')+cellHTML(c);}).join("")+'</div>';
+  return (i?connector():"")+h;
+ }).join("");
+ return '<div class="card" style="--ac:'+ACC[p]+';--on:'+ON[p]+';--sup:'+SUP[p]+'"><div class="inner'+(startFlipped?' flipped':'')+'">'+
+  '<div class="face front"><div class="title">'+NAMES[p].toUpperCase()+'</div><div class="rows">'+rows+'</div></div>'+
+  '<div class="face back"><span>'+NAMES[p]+'</span></div></div></div>';
+}
+function fit(){
+ var card=document.querySelector(".card");if(!card)return;
+ var s=Math.min(1,(innerWidth-170)/520,(innerHeight-(state.mode==="single"?230:170))/700);
+ s=Math.max(.3,s);
+ var box=card.parentNode;
+ box.style.width=520*s+"px";box.style.height=700*s+"px";
+ card.style.transform="scale("+s+")";
+}
+function bindFlip(){
+ var card=document.querySelector(".card");
+ if(card)card.addEventListener("click",function(){card.querySelector(".inner").classList.toggle("flipped");});
+}
+function home(){
+ state={mode:null,idx:0,sel:null};
+ app.innerHTML='<h1>Parts Flashcards</h1><p class="sub">Choose a mode</p><div class="menu">'+
+  '<button id="m1">Single parts</button><button id="m2">Whole song</button><button id="m3">Whole song, flipped</button></div>';
+ document.getElementById("m1").onclick=function(){start("single");};
+ document.getElementById("m2").onclick=function(){start("song");};
+ document.getElementById("m3").onclick=function(){start("flipped");};
+}
+function start(m){state.mode=m;state.idx=0;state.sel=null;render();}
+function render(){
+ var m=state.mode,h='<button class="home ghost" id="hb">← Home</button>';
+ if(m==="single"){
+  h+='<div class="top">'+NAMES.map(function(n,i){return '<button class="pbtn'+(state.sel===i?' sel':'')+'" data-i="'+i+'" style="background:'+ACC[i]+';color:'+ON[i]+'">'+n+'</button>';}).join("")+'</div>';
+  h+= state.sel===null?'<p class="sub">Pick a part to see its flashcard</p>':
+   '<div class="stage"><div class="box">'+cardHTML(state.sel,false)+'</div></div><div class="hint">Click the card to flip it</div>';
+ }else{
+  var p=SONG[state.idx]-1,last=state.idx===SONG.length-1;
+  h+='<div class="stage"><div class="box">'+cardHTML(p,m==="flipped")+'</div><button class="nextbtn" id="nx">'+(last?'Home':'Next')+'</button></div>'+
+   '<div class="count">Step '+(state.idx+1)+' of '+SONG.length+' · click the card to flip</div>';
+ }
+ app.innerHTML=h;
+ document.getElementById("hb").onclick=home;
+ Array.prototype.forEach.call(document.querySelectorAll(".pbtn"),function(b){b.onclick=function(){state.sel=+b.dataset.i;render();};});
+ var nx=document.getElementById("nx");
+ if(nx)nx.onclick=function(){if(state.idx===SONG.length-1)home();else{state.idx++;render();}};
+ bindFlip();fit();
+}
+addEventListener("resize",fit);
+home();
+</script>
+</body>
+</html>
